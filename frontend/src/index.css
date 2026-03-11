@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+
+    --primary: 270 72% 62%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 43 93% 64%;
+    --secondary-foreground: 0 0% 0%;
+
+    --muted: 270 20% 92%;
+    --muted-foreground: 0 0% 30%;
+
+    --accent: 43 93% 64%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 0%;
+    --input: 0 0% 0%;
+    --ring: 270 72% 62%;
+
+    --radius: 16px;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 0%;
+    --sidebar-primary: 270 72% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 43 93% 64%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 0%;
+    --sidebar-ring: 270 72% 62%;
+
+    /* Neo-brutalism tokens */
+    --brutal-border: 3px solid hsl(0 0% 0%);
+    --brutal-shadow: 4px 4px 0px hsl(0 0% 0%);
+    --brutal-shadow-lg: 6px 6px 0px hsl(0 0% 0%);
+    --brutal-shadow-sm: 2px 2px 0px hsl(0 0% 0%);
+
+    /* Extra palette */
+    --lavender: 270 40% 88%;
+    --mint: 150 60% 75%;
+    --peach: 20 90% 80%;
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 270 72% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 43 93% 64%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 43 93% 64%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 270 72% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer utilities {
+  .brutal-card {
+    border: 3px solid hsl(0 0% 0%);
+    box-shadow: 4px 4px 0px hsl(0 0% 0%);
+    @apply bg-card rounded-2xl;
+  }
+
+  .brutal-card-sm {
+    border: 3px solid hsl(0 0% 0%);
+    box-shadow: 2px 2px 0px hsl(0 0% 0%);
+    @apply bg-card rounded-xl;
+  }
+
+  .brutal-btn {
+    border: 3px solid hsl(0 0% 0%);
+    box-shadow: 4px 4px 0px hsl(0 0% 0%);
+    @apply font-bold uppercase tracking-wide transition-all rounded-xl;
+  }
+
+  .brutal-btn:hover {
+    box-shadow: 2px 2px 0px hsl(0 0% 0%);
+    transform: translate(2px, 2px);
+  }
+
+  .brutal-btn:active {
+    box-shadow: 0px 0px 0px hsl(0 0% 0%);
+    transform: translate(4px, 4px);
+  }
+
+  .brutal-shadow {
+    box-shadow: 4px 4px 0px hsl(0 0% 0%);
+  }
+
+  .brutal-shadow-lg {
+    box-shadow: 6px 6px 0px hsl(0 0% 0%);
+  }
+}
