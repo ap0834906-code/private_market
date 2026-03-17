@@ -4,20 +4,22 @@ interface SentimentBarProps {
 
 const SentimentBar = ({ yesPercentage }: SentimentBarProps) => {
   return (
-    <div className="w-full">
-      <div className="flex justify-between text-xs font-bold mb-1">
-        <span className="text-foreground">YES {yesPercentage}%</span>
-        <span className="text-foreground">NO {100 - yesPercentage}%</span>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+        <span>Yes {yesPercentage}%</span>
+        <span>No {100 - yesPercentage}%</span>
       </div>
-      <div className="w-full h-6 border-[3px] border-foreground flex overflow-hidden rounded-full">
-        <div
-          className="bg-mint h-full transition-all duration-700 animate-pulse-bar"
-          style={{ width: `${yesPercentage}%` }}
-        />
-        <div
-          className="bg-destructive h-full transition-all duration-700"
-          style={{ width: `${100 - yesPercentage}%` }}
-        />
+      <div className="overflow-hidden rounded-full border-2 border-black bg-white/70">
+        <div className="flex h-4">
+          <div
+            className="bg-[linear-gradient(90deg,#76d4a0,#3bb273)] transition-all duration-700"
+            style={{ width: `${yesPercentage}%` }}
+          />
+          <div
+            className="bg-[linear-gradient(90deg,#f97979,#f25f5c)] transition-all duration-700"
+            style={{ width: `${100 - yesPercentage}%` }}
+          />
+        </div>
       </div>
     </div>
   );

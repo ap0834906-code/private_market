@@ -1,83 +1,148 @@
-import { initSDK, createInstance, SepoliaConfig } from "@zama-fhe/relayer-sdk/web";
+import { createInstance, initSDK, SepoliaConfig } from "@zama-fhe/relayer-sdk/web";
 import { ethers } from "ethers";
-import { PRIVATE_MARKET_ADDRESS } from "./contract";
+import { NETWORK, PRIVATE_MARKET_ADDRESS, getInjectedProvider } from "./contract";
 
-// ── SDK Initialization ────────────────────────────────────────────────────────
-// Call this once at app startup (in main.tsx) before mounting React.
 export { initSDK };
 
-// ── Relayer Instance (singleton) ──────────────────────────────────────────────
-let _relayerInstance: Awaited<ReturnType<typeof createInstance>> | null = null;
-let _relayerInstancePromise: Promise<Awaited<ReturnType<typeof createInstance>>> | null = null;
+type RelayerInstance = Awaited<ReturnType<typeof createInstance>>;
+
+type RelayerMetadata = {
+  ACLAddress: string;
+  KMSVerifierAddress: string;
+  InputVerifierAddress: string;
+  gatewayChainId: number;
+};
+
+let relayerInstance: RelayerInstance | null = null;
+let relayerInstancePromise: Promise<RelayerInstance> | null = null;
+
+function getLocalConfigFromEnv() {
+  const verifyingContractAddressDecryption = import.meta.env.VITE_GATEWAY_DECRYPTION_ADDRESS as string | undefined;
+  const verifyingContractAddressInputVerification = import.meta.env.VITE_GATEWAY_INPUT_VERIFICATION_ADDRESS as
+    | string
+    | undefined;
+  const kmsContractAddress = import.meta.env.VITE_KMS_CONTRACT_ADDRESS as string | undefined;
+  const inputVerifierContractAddress = import.meta.env.VITE_INPUT_VERIFIER_CONTRACT_ADDRESS as string | undefined;
+  const aclContractAddress = import.meta.env.VITE_ACL_CONTRACT_ADDRESS as string | undefined;
+  const gatewayChainId = Number(import.meta.env.VITE_GATEWAY_CHAIN_ID ?? "0");
+  const relayerUrl = import.meta.env.VITE_RELAYER_URL as string | undefined;
+
+  if (
+    verifyingContractAddressDecryption &&
+    verifyingContractAddressInputVerification &&
+    kmsContractAddress &&
+    inputVerifierContractAddress &&
+    aclContractAddress &&
+    gatewayChainId &&
+    relayerUrl
+  ) {
+    return {
+      verifyingContractAddressDecryption,
+      verifyingContractAddressInputVerification,
+      kmsContractAddress,
+      inputVerifierContractAddress,
+      aclContractAddress,
+      gatewayChainId,
+      relayerUrl,
+      chainId: NETWORK.chainId,
+    };
+  }
+
+  return null;
+}
+
+async function getLocalMetadataConfig() {
+  const provider = getInjectedProvider();
+  if (!provider) return null;
+
+  const metadata = (await provider.request({
+    method: "fhevm_relayer_metadata",
+    params: [],
+  })) as Partial<RelayerMetadata> | null;
+
+  const decryption = import.meta.env.VITE_GATEWAY_DECRYPTION_ADDRESS as string | undefined;
+  const inputVerification = import.meta.env.VITE_GATEWAY_INPUT_VERIFICATION_ADDRESS as string | undefined;
+
+  if (
+    !metadata?.ACLAddress ||
+    !metadata?.KMSVerifierAddress ||
+    !metadata?.InputVerifierAddress ||
+    !metadata?.gatewayChainId ||
+    !decryption ||
+    !inputVerification
+  ) {
+    return null;
+  }
+
+  return {
+    verifyingContractAddressDecryption: decryption,
+    verifyingContractAddressInputVerification: inputVerification,
+    kmsContractAddress: metadata.KMSVerifierAddress,
+    inputVerifierContractAddress: metadata.InputVerifierAddress,
+    aclContractAddress: metadata.ACLAddress,
+    gatewayChainId: metadata.gatewayChainId,
+    relayerUrl: import.meta.env.VITE_RELAYER_URL ?? NETWORK.rpcUrl,
+    chainId: NETWORK.chainId,
+  };
+}
+
+async function resolveRelayerConfig() {
+  if (!NETWORK.isLocal) return SepoliaConfig;
+  return (await getLocalMetadataConfig()) ?? getLocalConfigFromEnv();
+}
 
 export async function getRelayerInstance() {
-  // Return cached resolved instance immediately
-  if (_relayerInstance) return _relayerInstance;
+  if (relayerInstance) return relayerInstance;
+  if (relayerInstancePromise) return relayerInstancePromise;
 
-  // Deduplicate concurrent calls — don't spin up multiple in-flight promises
-  if (_relayerInstancePromise) return _relayerInstancePromise;
-
-  if (typeof window === "undefined" || !(window as any).ethereum) {
+  const provider = getInjectedProvider();
+  if (!provider) {
     throw new Error("Ethereum provider not found. Please connect your wallet first.");
   }
 
-  _relayerInstancePromise = createInstance({
-    // Use SepoliaConfig which has all correct contract addresses + relayerUrl
-    // from the installed SDK version (verified via node -e SepoliaConfig)
-    ...SepoliaConfig,
-    // Pass window.ethereum as the network provider for browser
-    network: (window as any).ethereum,
-  }).then(instance => {
-    _relayerInstance = instance;
-    _relayerInstancePromise = null; // clear so errors don't get cached
-    return instance;
-  }).catch(err => {
-    _relayerInstancePromise = null; // clear on failure so next call retries
-    throw err;
-  });
+  const config = await resolveRelayerConfig();
+  if (!config) {
+    throw new Error("Missing local FHE config. Set the VITE_GATEWAY_* and VITE_*_CONTRACT_ADDRESS values.");
+  }
 
-  return _relayerInstancePromise;
+  relayerInstancePromise = createInstance({
+    ...config,
+    network: provider,
+  })
+    .then((instance) => {
+      relayerInstance = instance;
+      relayerInstancePromise = null;
+      return instance;
+    })
+    .catch((error) => {
+      relayerInstancePromise = null;
+      throw error;
+    });
+
+  return relayerInstancePromise;
 }
 
-// Call this when wallet disconnects to force re-init on next use
 export function resetRelayerInstance() {
-  _relayerInstance = null;
-  _relayerInstancePromise = null;
+  relayerInstance = null;
+  relayerInstancePromise = null;
 }
-
-// ── USDC Helpers ──────────────────────────────────────────────────────────────
 
 export const USDC_DECIMALS = 6;
 export const USDC_SCALE = 10n ** BigInt(USDC_DECIMALS);
 
-/** Convert a human-readable USDC amount to on-chain units.
- *  e.g. toUsdcUnits(50) → 50_000_000n */
 export function toUsdcUnits(amount: number | string): bigint {
-  const num = typeof amount === "string" ? Number(amount || "0") : amount;
-  return BigInt(Math.floor(num * 10 ** USDC_DECIMALS));
+  const value = typeof amount === "string" ? Number(amount || "0") : amount;
+  return BigInt(Math.floor(value * 10 ** USDC_DECIMALS));
 }
 
-/** Convert on-chain USDC units to a human-readable number.
- *  e.g. fromUsdcUnits(50_000_000n) → 50 */
 export function fromUsdcUnits(value: bigint | number | string): number {
-  const v =
+  const raw =
     typeof value === "bigint"
       ? value
       : BigInt(typeof value === "string" ? value || "0" : Math.trunc(value));
-  return Number(v) / 10 ** USDC_DECIMALS;
+  return Number(raw) / 10 ** USDC_DECIMALS;
 }
 
-// ── userDecrypt ───────────────────────────────────────────────────────────────
-
-/**
- * Wallet-gated decryption — only the owner of the ciphertext can decrypt.
- * Used for: encrypted balance, YES/NO share positions.
- *
- * @param handle  bytes32 handle from contract (e.g. getEncBalanceHandle())
- * @param signer  connected wallet signer
- * @param contractAddress  defaults to PRIVATE_MARKET_ADDRESS
- * @returns plaintext bigint value, or 0n if handle is uninitialized
- */
 export async function userDecryptHandle(
   handle: string,
   signer: ethers.Signer,
@@ -86,17 +151,11 @@ export async function userDecryptHandle(
   const instance = await getRelayerInstance();
   const keypair = instance.generateKeypair();
   const startTime = Math.floor(Date.now() / 1000);
-  const duration = 300; // 5 minutes — enough time for KMS response
+  const duration = 300;
   const userAddress = await signer.getAddress();
 
-  const eip712 = instance.createEIP712(
-    keypair.publicKey,
-    [contractAddress],
-    startTime,
-    duration,
-  );
-
-  const signature = await (signer as any).signTypedData(
+  const eip712 = instance.createEIP712(keypair.publicKey, [contractAddress], startTime, duration);
+  const signature = await signer.signTypedData(
     eip712.domain,
     { UserDecryptRequestVerification: eip712.types.UserDecryptRequestVerification },
     eip712.message,
@@ -117,25 +176,9 @@ export async function userDecryptHandle(
   return plaintext ?? 0n;
 }
 
-// ── publicDecrypt ─────────────────────────────────────────────────────────────
-
-/**
- * Public decryption — used for values marked makePubliclyDecryptable().
- * Used for: encLower (settlement), encYesShares/encNoShares (payout).
- * Returns abiEncodedClearValues + decryptionProof needed for on-chain verification.
- *
- * @param handles  array of bytes32 handles to decrypt
- */
-export async function publicDecryptHandles(
-  handles: string[],
-): Promise<{
-  abiEncodedClearValues: string;
-  decryptionProof: string;
-  clearValues: Record<string, bigint>;
-}> {
+export async function publicDecryptHandles(handles: string[]) {
   const instance = await getRelayerInstance();
-  const { abiEncodedClearValues, decryptionProof, clearValues } =
-    await instance.publicDecrypt(handles);
+  const { abiEncodedClearValues, decryptionProof, clearValues } = await instance.publicDecrypt(handles);
   return {
     abiEncodedClearValues,
     decryptionProof,
@@ -143,17 +186,6 @@ export async function publicDecryptHandles(
   };
 }
 
-// ── encryptInput ──────────────────────────────────────────────────────────────
-
-/**
- * Encrypt a uint64 value for submission to the contract.
- * Used for: trade() encAmount.
- *
- * @param value     plaintext bigint to encrypt (in USDC 6-decimal units)
- * @param userAddress  trader's wallet address
- * @param contractAddress  defaults to PRIVATE_MARKET_ADDRESS
- * @returns { handles, inputProof } to pass to contract.trade()
- */
 export async function encryptUint64(
   value: bigint,
   userAddress: string,
@@ -162,6 +194,5 @@ export async function encryptUint64(
   const instance = await getRelayerInstance();
   const input = await instance.createEncryptedInput(contractAddress, userAddress);
   input.add64(value);
-  const enc = await input.encrypt();
-  return enc;
+  return input.encrypt();
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import PendingBadge from "./PendingBadge";
 import { contractWrite, createUsdcContract, PRIVATE_MARKET_ADDRESS } from "@/lib/contract";
 import { toUsdcUnits } from "@/lib/fhe";
@@ -9,10 +9,11 @@ import type { ethers } from "ethers";
 interface Props {
   open: boolean;
   onClose: () => void;
+  onCreated?: () => void;
   signer: ethers.Signer | null;
 }
 
-const CreateMarketModal = ({ open, onClose, signer }: Props) => {
+const CreateMarketModal = ({ open, onClose, onCreated, signer }: Props) => {
   const [question, setQuestion] = useState("");
   const [date, setDate] = useState("");
   const [cap, setCap] = useState("");
@@ -23,51 +24,47 @@ const CreateMarketModal = ({ open, onClose, signer }: Props) => {
 
   if (!open) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!signer) {
       toast({
         title: "Wallet not connected",
-        description: "Connect as sponsor to create markets",
+        description: "Connect as sponsor to create markets.",
         variant: "destructive",
       });
       return;
     }
-    setSubmitting(true);
+
     try {
+      setSubmitting(true);
       const resolutionTs = Math.floor(new Date(date).getTime() / 1000);
       const liquidityCap = toUsdcUnits(Number(cap));
-      const initialLiq = BigInt(Math.floor(Number(initialLiquidity || "0")));
+      const initialLiq = toUsdcUnits(Number(initialLiquidity || "0"));
       const seedLiq = toUsdcUnits(Number(seedLiquidity || "0"));
 
       const usdc = createUsdcContract(signer);
-      const approveTx = await usdc.approve(PRIVATE_MARKET_ADDRESS, seedLiq);
-      await approveTx.wait();
+      await (await usdc.approve(PRIVATE_MARKET_ADDRESS, seedLiq)).wait();
 
-      const c = contractWrite(signer);
-      const tx = await c.createMarket(
-        question,
-        resolutionTs,
-        liquidityCap,
-        initialLiq,
-        seedLiq,
-      );
-      await tx.wait();
+      const contract = contractWrite(signer);
+      await (await contract.createMarket(question, resolutionTs, liquidityCap, initialLiq, seedLiq)).wait();
+
       toast({
         title: "Market created",
-        description: "Your encrypted market is now live",
+        description: "Your encrypted market is now live.",
       });
+
+      onCreated?.();
       onClose();
       setQuestion("");
       setDate("");
       setCap("");
       setInitialLiquidity("");
       setSeedLiquidity("");
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       toast({
         title: "Create failed",
-        description: "Unable to create market",
+        description: "Unable to create market.",
         variant: "destructive",
       });
     } finally {
@@ -76,82 +73,80 @@ const CreateMarketModal = ({ open, onClose, signer }: Props) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4">
-      <div className="brutal-card bg-card p-6 w-full max-w-lg">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Create Market</h2>
-          <button onClick={onClose} className="brutal-btn bg-card p-2">
-            <X size={20} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-[32px] border-2 border-black bg-[linear-gradient(180deg,rgba(255,248,237,0.98),rgba(255,255,255,0.98))] p-6 shadow-[10px_10px_0_0_rgba(0,0,0,1)]">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Sponsor console</p>
+            <h2 className="mt-2 text-3xl font-black text-foreground">Launch a new encrypted market</h2>
+          </div>
+          <button onClick={onClose} className="rounded-2xl border-2 border-black bg-white p-2">
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm font-bold uppercase mb-1 block">Question</label>
+        <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Question</label>
             <input
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              className="w-full p-3 border-[3px] border-foreground bg-card text-foreground font-sans text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Will X happen by Y?"
               required
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              className="mt-2 w-full rounded-[22px] border-2 border-black bg-white px-4 py-4 text-base font-semibold text-foreground outline-none"
+              placeholder="Will ETH close above $5,000 before January 1, 2027?"
             />
           </div>
-
           <div>
-            <label className="text-sm font-bold uppercase mb-1 block">Resolution Date</label>
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Resolution date</label>
             <input
               type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full p-3 border-[3px] border-foreground bg-card text-foreground font-sans text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
               required
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+              className="mt-2 w-full rounded-[22px] border-2 border-black bg-white px-4 py-4 text-base font-semibold text-foreground outline-none"
             />
           </div>
-
           <div>
-            <label className="text-sm font-bold uppercase mb-1 block">Liquidity Cap ($)</label>
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Liquidity cap (USDC)</label>
             <input
               type="number"
-              value={cap}
-              onChange={e => setCap(e.target.value)}
-              className="w-full p-3 border-[3px] border-foreground bg-card text-foreground font-sans text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="50000"
               required
+              value={cap}
+              onChange={(event) => setCap(event.target.value)}
+              className="mt-2 w-full rounded-[22px] border-2 border-black bg-white px-4 py-4 text-base font-semibold text-foreground outline-none"
+              placeholder="250000"
             />
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-bold uppercase mb-1 block">Initial Liquidity (shares)</label>
-              <input
-                type="number"
-                value={initialLiquidity}
-                onChange={e => setInitialLiquidity(e.target.value)}
-                className="w-full p-3 border-[3px] border-foreground bg-card text-foreground font-sans text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="1000"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm font-bold uppercase mb-1 block">Seed Liquidity (USDC)</label>
-              <input
-                type="number"
-                value={seedLiquidity}
-                onChange={e => setSeedLiquidity(e.target.value)}
-                className="w-full p-3 border-[3px] border-foreground bg-card text-foreground font-sans text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="50000"
-                required
-              />
-            </div>
+          <div>
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Initial liquidity</label>
+            <input
+              type="number"
+              required
+              value={initialLiquidity}
+              onChange={(event) => setInitialLiquidity(event.target.value)}
+              className="mt-2 w-full rounded-[22px] border-2 border-black bg-white px-4 py-4 text-base font-semibold text-foreground outline-none"
+              placeholder="100"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">Enter a normal value like `100`. The app scales it automatically.</p>
           </div>
-
-          <div className="flex items-center gap-3 mt-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="brutal-btn bg-primary text-primary-foreground px-6 py-3 text-base flex-1"
-            >
-              {submitting ? "DEPLOYING..." : "DEPLOY MARKET"}
+          <div>
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Seed liquidity (USDC)</label>
+            <input
+              type="number"
+              required
+              value={seedLiquidity}
+              onChange={(event) => setSeedLiquidity(event.target.value)}
+              className="mt-2 w-full rounded-[22px] border-2 border-black bg-white px-4 py-4 text-base font-semibold text-foreground outline-none"
+              placeholder="6"
+            />
+          </div>
+          <div className="md:col-span-2 flex items-center justify-between gap-4 rounded-[24px] border border-black/10 bg-white/70 p-4">
+            <p className="text-sm text-muted-foreground">
+              Seed liquidity gets escrowed into the market at creation time. For Sepolia, fund your sponsor wallet with test USDC first.
+            </p>
+            <button type="submit" disabled={submitting} className="signal-button inline-flex items-center gap-2 px-5 py-4 text-sm">
+              <Sparkles size={14} />
+              {submitting ? "Launching" : "Launch Market"}
             </button>
             {submitting && <PendingBadge />}
           </div>

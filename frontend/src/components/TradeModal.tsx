@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import PendingBadge from "./PendingBadge";
 import type { Market } from "@/data/mockData";
 
@@ -16,84 +16,72 @@ const TradeModal = ({ market, onClose, onSubmit }: Props) => {
 
   if (!market) return null;
 
-  const handleTrade = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleTrade = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!onSubmit) {
       onClose();
       return;
     }
     setSubmitting(true);
-    const numericAmount = Number(amount || "0");
-    onSubmit(side, numericAmount);
+    onSubmit(side, Number(amount || "0"));
     setSubmitting(false);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4">
-      <div className="brutal-card bg-card p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Trade</h2>
-          <button onClick={onClose} className="brutal-btn bg-card p-2">
-            <X size={20} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-[30px] border-2 border-black bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,245,237,0.97))] p-6 shadow-[10px_10px_0_0_rgba(0,0,0,1)]">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Encrypted trade ticket</p>
+            <h2 className="mt-2 text-2xl font-black text-foreground">{market.question}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-2xl border-2 border-black bg-white p-2">
+            <X size={18} />
           </button>
         </div>
 
-        <p className="font-bold text-base mb-4">{market.question}</p>
-
-        <form onSubmit={handleTrade} className="flex flex-col gap-4">
-          {/* YES/NO toggle */}
-          <div className="flex border-[3px] border-foreground rounded-xl overflow-hidden">
+        <form onSubmit={handleTrade} className="mt-6 space-y-5">
+          <div className="grid gap-3 md:grid-cols-2">
             <button
               type="button"
               onClick={() => setSide("YES")}
-              className={`flex-1 py-3 font-bold text-lg transition-colors ${
-                side === "YES"
-                  ? "bg-mint text-foreground"
-                  : "bg-card text-muted-foreground"
+              className={`rounded-[24px] border-2 border-black px-4 py-4 text-left ${
+                side === "YES" ? "bg-[#d8f3dc]" : "bg-white"
               }`}
             >
-              YES
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Side</p>
+              <p className="mt-2 text-xl font-black">YES</p>
             </button>
             <button
               type="button"
               onClick={() => setSide("NO")}
-              className={`flex-1 py-3 font-bold text-lg border-l-[3px] border-foreground transition-colors ${
-                side === "NO"
-                  ? "bg-destructive text-destructive-foreground"
-                  : "bg-card text-muted-foreground"
+              className={`rounded-[24px] border-2 border-black px-4 py-4 text-left ${
+                side === "NO" ? "bg-[#ffcad4]" : "bg-white"
               }`}
             >
-              NO
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Side</p>
+              <p className="mt-2 text-xl font-black">NO</p>
             </button>
           </div>
 
           <div>
-            <label className="text-sm font-bold uppercase mb-1 block">Amount ($)</label>
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Amount (USDC)</label>
             <input
               type="number"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              className="w-full p-3 border-[3px] border-foreground bg-card text-foreground font-sans text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="100"
-              required
               min="1"
+              required
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              className="mt-2 w-full rounded-[22px] border-2 border-black bg-white px-4 py-4 text-lg font-semibold text-foreground outline-none"
+              placeholder="100"
             />
           </div>
 
-          
-
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className={`brutal-btn px-6 py-3 text-base flex-1 ${
-                side === "YES"
-                  ? "bg-mint text-foreground"
-                  : "bg-destructive text-destructive-foreground"
-              }`}
-            >
-              {submitting ? "PLACING..." : `BUY ${side}`}
+            <button type="submit" disabled={submitting} className="signal-button inline-flex flex-1 items-center justify-center gap-2 px-5 py-4 text-sm">
+              {submitting ? "Submitting" : `Encrypt & Buy ${side}`}
+              <ArrowRight size={14} />
             </button>
             {submitting && <PendingBadge />}
           </div>

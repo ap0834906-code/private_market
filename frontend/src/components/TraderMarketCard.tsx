@@ -1,4 +1,4 @@
-import { Calendar, ArrowRight } from "lucide-react";
+import { ArrowRight, Calendar, LockKeyhole } from "lucide-react";
 import type { Market } from "@/data/mockData";
 
 interface Props {
@@ -8,44 +8,54 @@ interface Props {
 
 const TraderMarketCard = ({ market, onTrade }: Props) => {
   return (
-    <div className="brutal-card p-5 flex flex-col gap-3 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all cursor-pointer"
-      onClick={() => market.status === "open" && onTrade(market)}
-    >
-      <h3 className="text-lg font-bold leading-tight">{market.question}</h3>
-
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Calendar size={14} />
-          {market.resolutionDate}
-        </span>
-        <span
-          className={`brutal-btn px-2 py-0.5 text-xs ${
-            market.status === "open"
-              ? "bg-mint text-foreground"
-              : "bg-muted text-muted-foreground"
+    <div className="market-panel group">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+            <LockKeyhole size={12} />
+            Encrypted Order Flow
+          </div>
+          <h3 className="max-w-xl text-xl font-black leading-tight text-foreground">{market.question}</h3>
+        </div>
+        <div
+          className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${
+            market.status === "open" ? "bg-[#d8f3dc] text-black" : "bg-black text-white"
           }`}
         >
-          {market.status.toUpperCase()}
-        </span>
+          {market.status}
+        </div>
       </div>
 
-
-      {/* <div className="w-full">
-        <div className="flex justify-between text-xs font-bold mb-1">
-          <span>YES {market.yesPercentage}%</span>
-          <span>NO {100 - market.yesPercentage}%</span>
+      <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+        <div className="rounded-2xl border border-black/10 bg-white/70 p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em]">Resolution</p>
+          <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Calendar size={14} />
+            {market.resolutionDate}
+          </p>
         </div>
-        <div className="w-full h-4 border-[3px] border-foreground flex overflow-hidden rounded-full">
-          <div className="bg-mint h-full" style={{ width: `${market.yesPercentage}%` }} />
-          <div className="bg-destructive h-full" style={{ width: `${100 - market.yesPercentage}%` }} />
+        <div className="rounded-2xl border border-black/10 bg-white/70 p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em]">Liquidity Cap</p>
+          <p className="mt-2 text-sm font-semibold text-foreground">${market.liquidityCap.toLocaleString()}</p>
         </div>
-      </div> */}
+        <div className="rounded-2xl border border-black/10 bg-white/70 p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em]">Signal</p>
+          <p className="mt-2 text-sm font-semibold text-foreground">{market.totalTrades} encrypted fills</p>
+        </div>
+      </div>
 
-      {market.status === "open" && (
-        <button className="brutal-btn bg-primary text-primary-foreground px-4 py-2 text-sm self-end flex items-center gap-1">
-          Trade <ArrowRight size={14} />
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Private sizing, hidden positions, sponsor-only pool visibility.
+        </p>
+        <button
+          onClick={() => market.status === "open" && onTrade(market)}
+          className="signal-button inline-flex items-center gap-2 px-4 py-3 text-sm"
+        >
+          Trade
+          <ArrowRight size={14} />
         </button>
-      )}
+      </div>
     </div>
   );
 };

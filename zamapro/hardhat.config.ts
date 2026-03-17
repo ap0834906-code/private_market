@@ -15,17 +15,13 @@ import "./tasks/FHECounter";
 // Run 'npx hardhat vars setup' to see the list of variables that need to be set
 
 const MNEMONIC: string = vars.get("MNEMONIC", "test test test test test test test test test test test junk");
-const INFURA_API_KEY: string = vars.get("INFURA_API_KEY", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
-
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   namedAccounts: {
     deployer: 0,
   },
   etherscan: {
-    apiKey: {
-      sepolia: vars.get("ETHERSCAN_API_KEY", ""),
-    },
+    apiKey: vars.get("ETHERSCAN_API_KEY", ""),
   },
   gasReporter: {
     currency: "USD",
@@ -47,6 +43,10 @@ const config: HardhatUserConfig = {
       },
       chainId: 31337,
       url: "http://localhost:8545",
+    },
+    localhost: {
+      chainId: 31337,
+      url: "http://127.0.0.1:8545",
     },
     sepolia: {
       accounts: [vars.get("SEPOLIA_PRIVATE_KEY", "")],
@@ -74,6 +74,7 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 800,
       },
+      viaIR: true,
       evmVersion: "cancun",
     },
   },

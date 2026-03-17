@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import Landing from "./Landing";
-import { connectWallet, contractRead } from "@/lib/contract";
+import { connectWallet, contractRead, getInjectedProvider } from "@/lib/contract";
 import { ethers } from "ethers";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | undefined>(undefined);
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
@@ -11,10 +13,9 @@ const Index = () => {
   const [role, setRole] = useState<"sponsor" | "trader" | null>(null);
 
   useEffect(() => {
-    if ((window as any).ethereum && !provider) {
-      const p = new ethers.BrowserProvider((window as any).ethereum as any);
-      setProvider(p);
-    }
+    const injected = getInjectedProvider();
+    if (!injected || provider) return;
+    setProvider(new ethers.BrowserProvider(injected));
   }, [provider]);
 
   async function handleConnect() {
@@ -24,18 +25,26 @@ const Index = () => {
       setAddress(res.address);
       setProvider(res.provider);
       setSigner(res.signer);
-      await detectRole(res.provider, res.address);
+      const nextRole = await detectRole(res.provider, res.address);
+      navigate(nextRole === "sponsor" ? "/sponsor" : "/trader");
     }
   }
 
-  async function detectRole(p: ethers.BrowserProvider | null, addr: string) {
+  async function detectRole(p: ethers.BrowserProvider | null, addr: string): Promise<"sponsor" | "trader"> {
     try {
-      const read = contractRead(p ?? ethers.getDefaultProvider());
+      if (!p) {
+        setRole("trader");
+        return "trader";
+      }
+      const read = contractRead(p);
       const sponsor = await read.getSponsor(addr);
       const isWhitelisted = Boolean(sponsor[1]);
-      setRole(isWhitelisted ? "sponsor" : "trader");
+      const nextRole = isWhitelisted ? "sponsor" : "trader";
+      setRole(nextRole);
+      return nextRole;
     } catch {
       setRole("trader");
+      return "trader";
     }
   }
 
@@ -46,8 +55,8 @@ const Index = () => {
       provider={provider}
       signer={signer}
       role={role}
-  onConnect={handleConnect}
-  onRoleChange={(r: "sponsor" | "trader") => setRole(r)}
+      onConnect={handleConnect}
+      onRoleChange={(r: "sponsor" | "trader") => setRole(r)}
     />
   );
 };

@@ -1,12 +1,29 @@
 import { ethers } from "ethers";
 
+type EthereumProvider = ethers.Eip1193Provider;
+
+const DEFAULT_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID ?? "11155111");
+const DEFAULT_NETWORK_NAME = import.meta.env.VITE_NETWORK_NAME ?? (DEFAULT_CHAIN_ID === 31337 ? "localhost" : "sepolia");
+const DEFAULT_RPC_URL =
+  import.meta.env.VITE_RPC_URL ??
+  (DEFAULT_CHAIN_ID === 31337 ? "http://127.0.0.1:8545" : "https://ethereum-sepolia.publicnode.com");
+
+export const NETWORK = {
+  name: DEFAULT_NETWORK_NAME,
+  chainId: DEFAULT_CHAIN_ID,
+  chainIdHex: `0x${DEFAULT_CHAIN_ID.toString(16)}`,
+  rpcUrl: DEFAULT_RPC_URL,
+  isLocal: DEFAULT_CHAIN_ID === 31337,
+};
+
 export const PRIVATE_MARKET_ADDRESS =
   (import.meta.env.VITE_PRIVATE_MARKET_ADDRESS as string | undefined) ??
-  "0x8Aea87A640C68EC6b9BAA5A610964F71cAd39257";
+  "0x0000000000000000000000000000000000000000";
 
-export const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
+export const USDC_ADDRESS =
+  (import.meta.env.VITE_USDC_ADDRESS as string | undefined) ??
+  "0x0000000000000000000000000000000000000000";
 
-// Full ABI surface needed by the app.
 export const PrivateMarketAbi = [
   "function marketCount() view returns (uint256)",
   "function getMarket(uint256) view returns (address sponsor,string question,uint256 resolutionDate,bool resolved,bool outcome,uint256 liquidityCap,uint256 totalEscrowed,uint256 totalWinShares,uint256 lastUpdateTs)",
@@ -14,6 +31,10 @@ export const PrivateMarketAbi = [
   "function getEncBalanceHandle(address user) view returns (bytes32)",
   "function getYesSharesHandle(uint256 marketId,address trader) view returns (bytes32)",
   "function getNoSharesHandle(uint256 marketId,address trader) view returns (bytes32)",
+  "function getYesPoolHandle(uint256 marketId) view returns (bytes32)",
+  "function getNoPoolHandle(uint256 marketId) view returns (bytes32)",
+  "function getTotalYesSharesHandle(uint256 marketId) view returns (bytes32)",
+  "function getTotalNoSharesHandle(uint256 marketId) view returns (bytes32)",
   "function hasPendingTrade(address trader) view returns (bool)",
   "function getPendingLowerHandle(address trader) view returns (bytes32)",
   "function previewPayout(uint256 marketId,uint64 shares) view returns (uint256)",
@@ -36,66 +57,60 @@ export const UsdcAbi = [
   "function allowance(address owner,address spender) view returns (uint256)",
   "function approve(address spender,uint256 value) returns (bool)",
   "function decimals() view returns (uint8)",
+  "function mint(address to,uint256 amount) external",
 ];
 
-export function createContract(providerOrSigner: any) {
+export function getInjectedProvider(): EthereumProvider | null {
+  if (typeof window === "undefined") return null;
+  const maybeEthereum = (window as Window & { ethereum?: EthereumProvider }).ethereum;
+  return maybeEthereum ?? null;
+}
+
+export function createContract(providerOrSigner: ethers.ContractRunner) {
   return new ethers.Contract(PRIVATE_MARKET_ADDRESS, PrivateMarketAbi, providerOrSigner);
 }
 
-export function createUsdcContract(providerOrSigner: any) {
+export function createUsdcContract(providerOrSigner: ethers.ContractRunner) {
   return new ethers.Contract(USDC_ADDRESS, UsdcAbi, providerOrSigner);
 }
 
-export function contractRead(provider: any) {
+export function contractRead(provider: ethers.ContractRunner) {
   return createContract(provider);
 }
 
-export function contractWrite(signer: any) {
+export function contractWrite(signer: ethers.ContractRunner) {
   return createContract(signer);
 }
-
-// export async function connectWallet(): Promise<{
-//   provider: ethers.BrowserProvider | null;
-//   signer: ethers.Signer | null;
-//   address?: string;
-// }> {
-//   if ((window as any).ethereum == null) return { provider: null, signer: null };
-//   const provider = new ethers.BrowserProvider((window as any).ethereum as any);
-//   await provider.send("eth_requestAccounts", []);
-//   const signer = await provider.getSigner();
-//   const address = await signer.getAddress();
-//   return { provider, signer, address };
-// }
-
-
-const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111 in hex
 
 export async function connectWallet(): Promise<{
   provider: ethers.BrowserProvider | null;
   signer: ethers.Signer | null;
   address?: string;
 }> {
-  if ((window as any).ethereum == null) return { provider: null, signer: null };
+  const injected = getInjectedProvider();
+  if (!injected) return { provider: null, signer: null };
 
-  // Request accounts first
-  const provider = new ethers.BrowserProvider((window as any).ethereum as any);
+  const provider = new ethers.BrowserProvider(injected);
   await provider.send("eth_requestAccounts", []);
 
-  // Switch to Sepolia
   try {
-    await provider.send("wallet_switchEthereumChain", [
-      { chainId: SEPOLIA_CHAIN_ID },
-    ]);
-  } catch (switchError: any) {
-    // Error 4902 = chain not added to wallet yet — add it
-    if (switchError.code === 4902) {
+    await provider.send("wallet_switchEthereumChain", [{ chainId: NETWORK.chainIdHex }]);
+  } catch (switchError) {
+    const error = switchError as {
+      code?: number;
+      error?: { code?: number };
+      info?: { error?: { code?: number } };
+    };
+    const code = error.code ?? error.error?.code ?? error.info?.error?.code;
+
+    if (code === 4902) {
       await provider.send("wallet_addEthereumChain", [
         {
-          chainId: SEPOLIA_CHAIN_ID,
-          chainName: "Sepolia Testnet",
-          nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 },
-          rpcUrls: ["https://rpc.sepolia.org"],
-          blockExplorerUrls: ["https://sepolia.etherscan.io"],
+          chainId: NETWORK.chainIdHex,
+          chainName: NETWORK.isLocal ? "Local Hardhat" : "Sepolia Testnet",
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          rpcUrls: [NETWORK.rpcUrl],
+          blockExplorerUrls: NETWORK.isLocal ? [] : ["https://sepolia.etherscan.io"],
         },
       ]);
     } else {
